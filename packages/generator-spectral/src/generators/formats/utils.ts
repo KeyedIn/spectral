@@ -64,7 +64,7 @@ export type GeneratedFunction = string | WriterFunction;
 
 export type Input = Omit<
   InputFieldDefinition,
-  "clean" | "collection" | "model"
+  "clean" | "collection" | "model" | "language"
 > & {
   clean: GeneratedFunction;
   /** Upstream API key for this input */
@@ -73,6 +73,7 @@ export type Input = Omit<
   key: string;
   // FIXME: Improve type safety here by using the original model definition from InputFieldDefinition.
   model?: InputFieldChoice[];
+  language?: string;
 };
 
 export type Action = Omit<

@@ -5,38 +5,44 @@ import { InputFieldChoice, InputFieldType } from "@prismatic-io/spectral";
 
 type ParameterObject = OpenAPIV3.ParameterObject | OpenAPIV3_1.ParameterObject;
 
-const toInputType: {
-  [x: string]: {
+const toInputType = (type: string, required: boolean): {  
     type: InputFieldType;
-    cleanFn: string;
-    cleanReturnType: string;
-    coalesceFalsyValues: boolean;
-  };
-} = {
-  string: {
-    type: "string",
-    cleanFn: "toString",
-    cleanReturnType: "string | undefined",
-    coalesceFalsyValues: true,
-  },
-  integer: {
-    type: "string",
-    cleanFn: "toNumber",
-    cleanReturnType: "number",
-    coalesceFalsyValues: false,
-  },
-  number: {
-    type: "string",
-    cleanFn: "toNumber",
-    cleanReturnType: "number",
-    coalesceFalsyValues: false,
-  },
-  boolean: {
-    type: "boolean",
-    cleanFn: "toBool",
-    cleanReturnType: "boolean",
-    coalesceFalsyValues: false,
-  },
+    language?: string;
+    clean: string;
+  } => {
+
+  switch(type) {
+    case "integer":
+    case "number":
+      return {
+        type: "string",
+        clean: required
+          ? "(value): number => util.types.toNumber(value)"
+          : "(value): number | undefined => (typeof value === 'undefined' || value === '') ? undefined : util.types.toNumber(value)",
+      };
+
+    case "boolean":
+      return {
+        type: "boolean",
+        clean: required
+          ? "(value): boolean => util.types.toBool(value)"
+          : "(value): boolean | undefined => (typeof value === 'undefined' || value === '') ? undefined : util.types.toBool(value)",
+      };
+
+    case "object":
+    case "array":
+      return {
+        type: "code",
+        language: "json",
+        clean: "(value): any => util.types.toObject(value) || undefined",
+      };
+
+    default:
+      return {
+        type: "string",
+        clean: "(value): string | undefined => util.types.toString(value)",
+      };  
+  }
 };
 
 const getInputModel = (
@@ -74,9 +80,8 @@ const buildInput = (
   }
 
   const schemaType = parameter.schema?.type;
-  const { type, cleanFn, cleanReturnType, coalesceFalsyValues } =
-    toInputType[schemaType] ?? toInputType["string"];
-  const coalescePart = coalesceFalsyValues ? " || undefined" : "";
+  const required = parameter.required || false;  
+  const { type, language, clean } = toInputType(schemaType, required);
 
   const { name: paramKey } = parameter;
   const key = seenKeys.has(cleanIdentifier(paramKey))
@@ -91,12 +96,13 @@ const buildInput = (
     key,
     label: startCase(paramKey),
     type,
-    required: parameter.required,
+    language,
+    required,
     comments: parameter.description,
     default: parameter.schema?.default,
     example: parameter.schema?.example,
     model,
-    clean: `(value): ${cleanReturnType} => util.types.${cleanFn}(value)${coalescePart}`,
+    clean,
   });
   return input;
 };
@@ -104,6 +110,10 @@ const buildInput = (
 const getProperties = (
   schema: OpenAPIV3.SchemaObject | OpenAPIV3_1.SchemaObject
 ): Record<string, OpenAPIV3.SchemaObject | OpenAPIV3_1.SchemaObject> => {
+  if (!schema.properties && !schema.allOf) {
+    return { "value": schema };
+  }
+
   return merge(
     schema.properties ?? {},
     ...(schema.allOf ?? []).map((v) => (v as any).properties) // FIXME: any usage
@@ -121,9 +131,8 @@ const buildBodyInputs = (
     .filter(([_propKey, prop]) => !prop.readOnly) // Don't create inputs for readonly properties
     .map<Input>(([propKey, prop]) => {
       const schemaType = prop?.type;
-      const { type, cleanFn, cleanReturnType, coalesceFalsyValues } =
-        toInputType[schemaType as string] ?? toInputType["string"];
-      const coalescePart = coalesceFalsyValues ? " || undefined" : "";
+      const required = requiredKeys.has(propKey);
+      const { type, language, clean } = toInputType(schemaType as string ?? "string", required);
 
       const model = getInputModel(prop);
 
@@ -137,12 +146,13 @@ const buildBodyInputs = (
         key,
         label: startCase(propKey),
         type,
-        required: requiredKeys.has(propKey),
+        language,
+        required,
         comments: prop.description,
         default: prop.default,
         example: prop.example,
         model,
-        clean: `(value): ${cleanReturnType} => util.types.${cleanFn}(value)${coalescePart}`,
+        clean,
       });
     });
 };

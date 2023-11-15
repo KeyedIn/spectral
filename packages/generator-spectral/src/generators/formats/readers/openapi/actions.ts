@@ -42,7 +42,7 @@ const buildPerformFunction = (
     writer
       .writeLine(`async (context, { connection, ${destructureNames} }) => {`)
       .blankLineIfLastNot()
-      .writeLine("const client = createClient(connection);")
+      .writeLine("const client = await createClient(connection);")
       .write("const {data} = await client.")
       .write(verb)
       .write("(`")
@@ -50,7 +50,7 @@ const buildPerformFunction = (
       .write("`")
       .conditionalWrite(
         ["post", "put", "patch"].includes(verb),
-        () => `, { ${bodyMapping} }`
+        () => bodyInputs.length == 1 && bodyInputs[0].type === "code" ? `, ${bodyMapping}` : `, { ${bodyMapping} }`
       )
       .conditionalWrite(
         !isEmpty(queryMapping),
@@ -78,7 +78,7 @@ const buildAction = (
     operation,
     sharedParameters
   );
-  const groupTag = toGroupTag(path);
+  const groupTag = operation.tags?.length ? cleanIdentifier(operation.tags[0]) : toGroupTag(path);
 
   // Repackage inputs; need to ensure we camelCase to handle hyphenated identifiers.
   const inputs = [...pathInputs, ...queryInputs, ...bodyInputs].reduce(
@@ -90,9 +90,9 @@ const buildAction = (
     key: operationName,
     groupTag,
     display: {
-      label: startCase(operationName),
+      label: operation.summary ?? startCase(operationName),
       description:
-        operation.summary ?? operation.description ?? "TODO: Description",
+        operation.description ?? operation.summary ?? "TODO: Description",
     },
     inputs: {
       connection: { label: "Connection", type: "connection", required: true },
