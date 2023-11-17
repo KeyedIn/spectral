@@ -1,21 +1,21 @@
 {
-  "name": "@prismatic-io/generator-spectral",
+  "name": "kimco-generator-spectral",
   "version": "2.3.0",
-  "description": "Yeoman generator for scaffolding out Prismatic components",
+  "description": "KIMCO's fork of Yeoman generator for scaffolding out Prismatic components",
   "keywords": [
     "prismatic",
     "yeoman-generator"
   ],
   "homepage": "https://prismatic.io",
   "bugs": {
-    "url": "https://github.com/prismatic-io/spectral"
+    "url": "https://github.com/KeyedIn/spectral"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/prismatic-io/spectral.git"
+    "url": "https://github.com/KeyedIn/spectral.git"
   },
   "publishConfig": {
-    "access": "public",
+    "access": "restricted",
     "registry": "https://registry.npmjs.org/"
   },
   "license": "MIT",
